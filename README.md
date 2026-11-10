@@ -73,7 +73,3 @@ CI runs lint, type-check, tests and builds on every push (`.github/workflows/ci.
 - Grading is synchronous. A job queue would scale better.
 - C only, one file per submission.
 - Tables are created at startup. Add Alembic migrations before changing the schema in production.
-
-## License
-
-MIT
