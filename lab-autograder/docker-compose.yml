@@ -1,0 +1,49 @@
+# Quick start:  cp .env.example .env  (edit it)  &&  docker compose up --build
+#
+# SECURITY NOTE: sandbox_mode=docker needs the Docker socket inside the API container,
+# which is equivalent to root on the host. Run this stack on a dedicated VM, not on a
+# machine that holds anything you care about. See README "Hardening" for alternatives.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: autograder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: autograder
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autograder"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+psycopg://autograder:${POSTGRES_PASSWORD}@db:5432/autograder
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      INSTRUCTOR_INVITE_CODE: ${INSTRUCTOR_INVITE_CODE:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      HINT_MODEL: ${HINT_MODEL:-claude-sonnet-5-5}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      SANDBOX_MODE: docker
+      SANDBOX_IMAGE: gcc:13
+      SANDBOX_WORKDIR_ROOT: /var/grader-work
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path on host and in container, so sibling sandbox containers can mount it.
+      - /var/grader-work:/var/grader-work
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  dbdata:
